@@ -1,59 +1,64 @@
 package main
 
 import (
-	"flag"
+	"log"
+	"net/http"
+	"path/filepath"
+	"terminal-ws/terminal"
+
+	flag "github.com/spf13/pflag"
+
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
-	"log"
-	"net/http"
-	"path/filepath"
-	"terminal-ws/terminal"
 )
 
 var (
-	restconfig *rest.Config
-	kubeconfig *string
-	client *kubernetes.Clientset
+	restconfig     *rest.Config
+	kubeconfig     string
+	client         *kubernetes.Clientset
+	allowedOrigins []string
+	port           string
 )
 
 func init() {
-	if home := homedir.HomeDir(); home != "" {
-		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-	} else {
-		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
-	}
+	flag.StringVar(&port, "port", "80", "serve port")
+	flag.StringVar(&kubeconfig, "kubeconfig", filepath.Join(homedir.HomeDir(), ".kube", "config"), "absolute path to the kubeconfig file")
+	flag.StringSliceVar(&allowedOrigins, "allowedOrigins", []string{"*"}, "cors allowedOrigins")
 }
 
 func main() {
 	flag.Parse()
 
-	client = NewK8sClient()
+	client = newK8sClient()
 
 	r := mux.NewRouter()
 
 	r.PathPrefix("/api/sockjs/").Handler(terminal.CreateAttachHandler("/api/sockjs"))
 	r.Handle("/pod/{namespace}/{pod}/shell", terminal.HandleExecShell(client, restconfig)).Methods("GET")
+
 	c := cors.New(cors.Options{
-		AllowedHeaders: []string{"*"},
-		AllowedOrigins: []string{"http://localhost:8081", "http://127.0.0.1:8000"},
-		//AllowCredentials: true,
+		AllowedHeaders:   []string{"*"},
+		AllowedOrigins:   allowedOrigins,
+		AllowCredentials: true,
 		// Enable Debugging for testing, consider disabling in production
-		Debug: true,
+		// Debug: true,
 	})
 
 	// Insert the middleware
-	handler := c.Handler(r)
-	log.Println("server run")
-	log.Fatal(http.ListenAndServe(":8888", handler))
+	log.Println("allowedOrigins: ", allowedOrigins)
+	log.Println("kubeconfig: ", kubeconfig)
+	log.Println("server run at port: " + port)
+
+	log.Fatal(http.ListenAndServe(":"+port, c.Handler(r)))
 }
 
-func NewK8sClient() *kubernetes.Clientset {
+func newK8sClient() *kubernetes.Clientset {
 	var err error
-	restconfig, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
+	restconfig, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		panic(err.Error())
 	}
