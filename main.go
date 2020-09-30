@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"terminal-ws/terminal"
+	"time"
 
 	flag "github.com/spf13/pflag"
 
@@ -37,13 +38,18 @@ func main() {
 
 	r := mux.NewRouter()
 
+	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		now := time.Now().Format("2006-01-02 15:04:05")
+		w.Write([]byte(now + " hello xuanji!"))
+	})
+
 	r.PathPrefix("/api/sockjs/").Handler(terminal.CreateAttachHandler("/api/sockjs"))
 	r.Handle("/pod/{namespace}/{pod}/shell", terminal.HandleExecShell(client, restconfig)).Methods("GET")
 
 	c := cors.New(cors.Options{
-		AllowedHeaders:   []string{"*"},
-		AllowedOrigins:   allowedOrigins,
-		AllowCredentials: true,
+		AllowedHeaders: []string{"*"},
+		AllowedOrigins: allowedOrigins,
+		// AllowCredentials: true,
 		// Enable Debugging for testing, consider disabling in production
 		// Debug: true,
 	})
