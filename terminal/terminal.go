@@ -5,12 +5,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
-	"gopkg.in/igm/sockjs-go.v2/sockjs"
 	"io"
 	"log"
 	"net/http"
 	"sync"
+
+	"github.com/gorilla/mux"
+	"gopkg.in/igm/sockjs-go.v2/sockjs"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -305,6 +306,7 @@ func WaitForTerminal(k8sClient kubernetes.Interface, cfg *rest.Config, container
 type TerminalResponse struct {
 	ID string `json:"id"`
 }
+
 // Handles execute shell API call
 func HandleExecShell(client *kubernetes.Clientset, restconfig *rest.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -325,7 +327,7 @@ func HandleExecShell(client *kubernetes.Clientset, restconfig *rest.Config) http
 			Namespace: vars["namespace"],
 			Pod:       vars["pod"],
 			Container: r.URL.Query().Get("container"),
-		}, "bash", sessionID)
+		}, "", sessionID)
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		res := &TerminalResponse{ID: sessionID}

@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"terminal-ws/terminal"
 	"time"
@@ -56,7 +57,6 @@ func main() {
 
 	// Insert the middleware
 	log.Println("allowedOrigins: ", allowedOrigins)
-	log.Println("kubeconfig: ", kubeconfig)
 	log.Println("server run at port: " + port)
 
 	log.Fatal(http.ListenAndServe(":"+port, c.Handler(r)))
@@ -64,7 +64,15 @@ func main() {
 
 func newK8sClient() *kubernetes.Clientset {
 	var err error
-	restconfig, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if exists(kubeconfig) {
+		log.Println("clientcmd.BuildConfigFromFlags")
+		log.Println("kubeconfig: ", kubeconfig)
+		restconfig, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+	} else {
+		log.Println("rest.InClusterConfig")
+		restconfig, err = rest.InClusterConfig()
+	}
+
 	if err != nil {
 		panic(err.Error())
 	}
@@ -75,4 +83,15 @@ func newK8sClient() *kubernetes.Clientset {
 	}
 
 	return clientset
+}
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsExist(err) {
+			return true
+		}
+		return false
+	}
+	return true
 }
